@@ -1,0 +1,12 @@
+{
+  "name": "discussify-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Discussify - Full-stack MERN social community and discussion platform",
+  "scripts": {
+    "server": "npm --prefix server run dev",
+    "client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client run build",
+    "test:models": "npm --prefix server run test:models"
+  }
+}
