@@ -18,7 +18,9 @@ import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
 import Communities from './pages/Communities';
 import CommunityDetail from './pages/CommunityDetail';
+import AdminDashboard from './pages/AdminDashboard';
 import PrivateRoute from './components/PrivateRoute';
+import AdminRoute from './components/AdminRoute';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function PublicOnlyRoute({ children }) {
@@ -238,6 +240,14 @@ function AppContent() {
                 <PrivateRoute>
                   <Profile />
                 </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
               }
             />
             {/* Catch-all redirect */}

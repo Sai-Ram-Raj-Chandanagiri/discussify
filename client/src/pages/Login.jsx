@@ -136,6 +136,9 @@ export default function Login() {
               }}
               error={Boolean(errors.email)}
               helperText={errors.email}
+              FormHelperTextProps={{
+                role: errors.email ? 'alert' : undefined
+              }}
               inputProps={{
                 'aria-required': 'true',
                 'aria-invalid': Boolean(errors.email)
@@ -157,6 +160,9 @@ export default function Login() {
               }}
               error={Boolean(errors.password)}
               helperText={errors.password}
+              FormHelperTextProps={{
+                role: errors.password ? 'alert' : undefined
+              }}
               inputProps={{
                 'aria-required': 'true',
                 'aria-invalid': Boolean(errors.password)

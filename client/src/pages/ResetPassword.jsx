@@ -160,6 +160,9 @@ export default function ResetPassword() {
               }}
               error={Boolean(errors.token)}
               helperText={errors.token}
+              FormHelperTextProps={{
+                role: errors.token ? 'alert' : undefined
+              }}
               inputProps={{
                 'aria-required': 'true',
                 'aria-invalid': Boolean(errors.token)
@@ -181,6 +184,9 @@ export default function ResetPassword() {
               }}
               error={Boolean(errors.newPassword)}
               helperText={errors.newPassword || 'Must be at least 8 characters with letters & numbers.'}
+              FormHelperTextProps={{
+                role: errors.newPassword ? 'alert' : undefined
+              }}
               inputProps={{
                 'aria-required': 'true',
                 'aria-invalid': Boolean(errors.newPassword)
@@ -202,6 +208,9 @@ export default function ResetPassword() {
               }}
               error={Boolean(errors.confirmPassword)}
               helperText={errors.confirmPassword}
+              FormHelperTextProps={{
+                role: errors.confirmPassword ? 'alert' : undefined
+              }}
               inputProps={{
                 'aria-required': 'true',
                 'aria-invalid': Boolean(errors.confirmPassword)

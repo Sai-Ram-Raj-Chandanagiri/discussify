@@ -23,10 +23,14 @@ const authRoutes = require('./routes/authRoutes');
 const communityRoutes = require('./routes/communityRoutes');
 const userRoutes = require('./routes/userRoutes');
 const discussionRoutes = require('./routes/discussionRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/communities', communityRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/discussions', discussionRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Basic health check endpoint
 app.get('/api/health', (req, res) => {

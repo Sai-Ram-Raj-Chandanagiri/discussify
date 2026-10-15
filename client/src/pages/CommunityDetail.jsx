@@ -795,8 +795,10 @@ export default function CommunityDetail() {
                         )}
 
                         {isMember ? (
-                          <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
                             <TextField
+                              id={`reply-input-${disc._id}`}
+                              label="Write a reply"
                               placeholder="Write a reply..."
                               size="small"
                               fullWidth
@@ -805,6 +807,9 @@ export default function CommunityDetail() {
                                 setReplyInputs({ ...replyInputs, [disc._id]: e.target.value })
                               }
                               disabled={disc.status === 'closed' || replyLoadingId === disc._id}
+                              inputProps={{
+                                'aria-label': `Write a reply to discussion: ${disc.title}`
+                              }}
                             />
                             <Button
                               variant="contained"
@@ -1157,6 +1162,9 @@ export default function CommunityDetail() {
               }}
               error={Boolean(resourceErrors.title)}
               helperText={resourceErrors.title || 'Give your resource a descriptive name.'}
+              FormHelperTextProps={{
+                role: resourceErrors.title ? 'alert' : undefined
+              }}
               inputProps={{ 'aria-required': 'true' }}
             />
 
@@ -1209,6 +1217,9 @@ export default function CommunityDetail() {
                 }}
                 error={Boolean(resourceErrors.url)}
                 helperText={resourceErrors.url || 'Link to an informative article, tutorial, or educational video.'}
+                FormHelperTextProps={{
+                  role: resourceErrors.url ? 'alert' : undefined
+                }}
               />
             ) : (
               <Box>
@@ -1218,6 +1229,7 @@ export default function CommunityDetail() {
                   ref={resourceFileInputRef}
                   onChange={handleResourceFileChange}
                   style={{ display: 'none' }}
+                  aria-label="Select resource file to upload"
                 />
                 <Button
                   variant="outlined"
@@ -1230,7 +1242,7 @@ export default function CommunityDetail() {
                   {resourceFile ? resourceFile.name : 'Choose File to Upload (Max 5MB)'}
                 </Button>
                 {resourceErrors.file && (
-                  <Typography variant="caption" color="error" display="block" sx={{ mt: 1 }}>
+                  <Typography variant="caption" color="error" display="block" sx={{ mt: 1 }} role="alert">
                     {resourceErrors.file}
                   </Typography>
                 )}
@@ -1297,6 +1309,9 @@ export default function CommunityDetail() {
               }}
               error={Boolean(discussionErrors.title)}
               helperText={discussionErrors.title}
+              FormHelperTextProps={{
+                role: discussionErrors.title ? 'alert' : undefined
+              }}
               inputProps={{ 'aria-required': 'true' }}
             />
 
@@ -1315,6 +1330,9 @@ export default function CommunityDetail() {
               }}
               error={Boolean(discussionErrors.content)}
               helperText={discussionErrors.content}
+              FormHelperTextProps={{
+                role: discussionErrors.content ? 'alert' : undefined
+              }}
               inputProps={{ 'aria-required': 'true' }}
             />
           </DialogContent>
@@ -1374,6 +1392,9 @@ export default function CommunityDetail() {
               }}
               error={Boolean(editErrors.name)}
               helperText={editErrors.name}
+              FormHelperTextProps={{
+                role: editErrors.name ? 'alert' : undefined
+              }}
             />
 
             <TextField
@@ -1390,9 +1411,11 @@ export default function CommunityDetail() {
             <FormControlLabel
               control={
                 <Switch
+                  id="edit-community-privacy"
                   checked={editIsPrivate}
                   onChange={(e) => setEditIsPrivate(e.target.checked)}
                   color="primary"
+                  inputProps={{ 'aria-label': 'Toggle community privacy' }}
                 />
               }
               label={editIsPrivate ? 'Private Community' : 'Public Community'}
@@ -1454,6 +1477,9 @@ export default function CommunityDetail() {
               }}
               error={Boolean(inviteError)}
               helperText={inviteError}
+              FormHelperTextProps={{
+                role: inviteError ? 'alert' : undefined
+              }}
             />
           </DialogContent>
 

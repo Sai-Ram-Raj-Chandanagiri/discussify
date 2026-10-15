@@ -476,6 +476,18 @@ const leaveCommunity = async (req, res) => {
 
     await community.save();
 
+    // STRICT NEGATIVE CRITERION 1:
+    // Clear/delete notifications for this community when user leaves,
+    // ensuring the user never receives or retains notifications for communities they have left.
+    try {
+      await Notification.deleteMany({
+        recipient: req.user._id,
+        community: community._id
+      });
+    } catch (cleanErr) {
+      console.warn('Failed to clear notifications upon leaving community:', cleanErr.message);
+    }
+
     // Log activity
     req.user.activityLog.push({
       action: `Left community: ${community.name}`,

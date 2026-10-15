@@ -160,6 +160,9 @@ export default function Register() {
               }}
               error={Boolean(errors.name)}
               helperText={errors.name}
+              FormHelperTextProps={{
+                role: errors.name ? 'alert' : undefined
+              }}
               inputProps={{
                 'aria-required': 'true',
                 'aria-invalid': Boolean(errors.name)
@@ -181,6 +184,9 @@ export default function Register() {
               }}
               error={Boolean(errors.email)}
               helperText={errors.email || 'Email address cannot be changed after registration.'}
+              FormHelperTextProps={{
+                role: errors.email ? 'alert' : undefined
+              }}
               inputProps={{
                 'aria-required': 'true',
                 'aria-invalid': Boolean(errors.email)
@@ -202,6 +208,9 @@ export default function Register() {
               }}
               error={Boolean(errors.password)}
               helperText={errors.password || 'Must be at least 8 characters with letters & numbers.'}
+              FormHelperTextProps={{
+                role: errors.password ? 'alert' : undefined
+              }}
               inputProps={{
                 'aria-required': 'true',
                 'aria-invalid': Boolean(errors.password)
@@ -223,6 +232,9 @@ export default function Register() {
               }}
               error={Boolean(errors.confirmPassword)}
               helperText={errors.confirmPassword}
+              FormHelperTextProps={{
+                role: errors.confirmPassword ? 'alert' : undefined
+              }}
               inputProps={{
                 'aria-required': 'true',
                 'aria-invalid': Boolean(errors.confirmPassword)

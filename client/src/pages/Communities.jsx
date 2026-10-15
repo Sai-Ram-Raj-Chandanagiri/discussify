@@ -237,17 +237,20 @@ export default function Communities() {
       <Box sx={{ mb: 4 }}>
         <TextField
           id="community-search"
+          label="Search Communities"
           placeholder="Search communities by name or topic keyword..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           fullWidth
+          inputProps={{
+            'aria-label': 'Search communities by name or topic keyword'
+          }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
                 <SearchIcon color="action" />
               </InputAdornment>
-            ),
-            'aria-label': 'Search communities by keyword'
+            )
           }}
           sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
         />
@@ -436,6 +439,9 @@ export default function Communities() {
               }}
               error={Boolean(formErrors.name)}
               helperText={formErrors.name || 'Must be unique (case-insensitive) between 2 and 80 characters.'}
+              FormHelperTextProps={{
+                role: formErrors.name ? 'alert' : undefined
+              }}
               inputProps={{
                 'aria-required': 'true',
                 'aria-invalid': Boolean(formErrors.name)

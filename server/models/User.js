@@ -97,7 +97,7 @@ const userSchema = new mongoose.Schema(
           // Prevents both newDiscussions and newResources from being false simultaneously
           return !(settings.newDiscussions === false && settings.newResources === false);
         },
-        message: 'Both discussion and resource notifications cannot be disabled simultaneously.'
+        message: 'You cannot turn off all notifications. At least one notification type must remain enabled.'
       }
     }
   },

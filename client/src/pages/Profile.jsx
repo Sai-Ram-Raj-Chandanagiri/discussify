@@ -16,6 +16,8 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import IconButton from '@mui/material/IconButton';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import LockIcon from '@mui/icons-material/Lock';
 import PersonIcon from '@mui/icons-material/Person';
@@ -25,6 +27,9 @@ import HistoryIcon from '@mui/icons-material/History';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SaveIcon from '@mui/icons-material/Save';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import ForumIcon from '@mui/icons-material/Forum';
+import DescriptionIcon from '@mui/icons-material/Description';
 import AlertBanner from '../components/AlertBanner';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -42,12 +47,21 @@ export default function Profile() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
 
-  // UI feedback state
+  // UI feedback state for Profile Details
   const [formErrors, setFormErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
+
+  // Notification Preferences state
+  const [notifSettings, setNotifSettings] = useState({
+    newDiscussions: true,
+    newResources: true
+  });
+  const [settingsError, setSettingsError] = useState('');
+  const [settingsSuccess, setSettingsSuccess] = useState('');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Fetch fresh profile details on mount
   useEffect(() => {
@@ -62,6 +76,12 @@ export default function Profile() {
           if (res.data.user.profilePictureUrl) {
             setPreviewUrl(res.data.user.profilePictureUrl);
           }
+          if (res.data.user.notificationSettings) {
+            setNotifSettings({
+              newDiscussions: res.data.user.notificationSettings.newDiscussions !== false,
+              newResources: res.data.user.notificationSettings.newResources !== false
+            });
+          }
         }
       } catch (err) {
         console.error('Failed to fetch user profile:', err);
@@ -73,6 +93,16 @@ export default function Profile() {
     fetchLatestProfile();
   }, []);
 
+  // Sync notificationSettings state when user in context updates
+  useEffect(() => {
+    if (user?.notificationSettings) {
+      setNotifSettings({
+        newDiscussions: user.notificationSettings.newDiscussions !== false,
+        newResources: user.notificationSettings.newResources !== false
+      });
+    }
+  }, [user?.notificationSettings]);
+
   const handleFileChange = (e) => {
     setServerError('');
     setSuccessMessage('');
@@ -83,7 +113,6 @@ export default function Profile() {
     // Strict Client-Side File Size Validation (2MB limit)
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
       setServerError('Profile picture exceeds the maximum size limit of 2MB.');
-      // Reset input value so same file can be re-selected if needed
       e.target.value = '';
       setSelectedFile(null);
       return;
@@ -128,8 +157,8 @@ export default function Profile() {
       return;
     }
 
-    setIsSaving(true);
     try {
+      setIsSaving(true);
       const formData = new FormData();
       formData.append('name', name.trim());
       formData.append('bio', bio.trim());
@@ -141,23 +170,86 @@ export default function Profile() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      setSuccessMessage(res.data.message || 'Profile updated successfully.');
-      if (res.data.user) {
+      if (res.data?.user) {
         setUser(res.data.user);
-        setName(res.data.user.name || '');
-        setBio(res.data.user.bio || '');
-        if (res.data.user.profilePictureUrl) {
-          setPreviewUrl(res.data.user.profilePictureUrl);
-        }
+        localStorage.setItem('user', JSON.stringify(res.data.user));
       }
+
+      setSuccessMessage(res.data.message || 'Profile updated successfully.');
       setSelectedFile(null);
     } catch (err) {
-      const message =
-        err.response?.data?.message ||
-        'Failed to update profile details. Please try again.';
-      setServerError(message);
+      console.error('Profile update failed:', err);
+      const errMsg = err?.response?.data?.message || 'Failed to update profile. Please try again.';
+      setServerError(errMsg);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // STRICT NEGATIVE CRITERION 2:
+  // Prevent toggling off all notification switches at once
+  const handleToggleDiscussions = (e) => {
+    const nextVal = e.target.checked;
+    setSettingsError('');
+    setSettingsSuccess('');
+
+    if (!nextVal && !notifSettings.newResources) {
+      setSettingsError('You cannot turn off all notifications. At least one notification type must remain enabled.');
+      return;
+    }
+
+    setNotifSettings((prev) => ({
+      ...prev,
+      newDiscussions: nextVal
+    }));
+  };
+
+  const handleToggleResources = (e) => {
+    const nextVal = e.target.checked;
+    setSettingsError('');
+    setSettingsSuccess('');
+
+    if (!nextVal && !notifSettings.newDiscussions) {
+      setSettingsError('You cannot turn off all notifications. At least one notification type must remain enabled.');
+      return;
+    }
+
+    setNotifSettings((prev) => ({
+      ...prev,
+      newResources: nextVal
+    }));
+  };
+
+  const handleSaveNotificationSettings = async () => {
+    setSettingsError('');
+    setSettingsSuccess('');
+
+    // Strict Negative Criterion 2 validation check before API call
+    if (!notifSettings.newDiscussions && !notifSettings.newResources) {
+      setSettingsError('You cannot turn off all notifications. At least one notification type must remain enabled.');
+      return;
+    }
+
+    try {
+      setIsSavingSettings(true);
+      const res = await api.put('/users/notification-settings', {
+        newDiscussions: notifSettings.newDiscussions,
+        newResources: notifSettings.newResources
+      });
+
+      if (res.data?.user) {
+        setUser(res.data.user);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+      }
+
+      setSettingsSuccess(res.data.message || 'Notification settings updated successfully.');
+      window.dispatchEvent(new Event('discussify-refresh-notifications'));
+    } catch (err) {
+      console.error('Failed to update notification settings:', err);
+      const errMsg = err?.response?.data?.message || 'Failed to update notification settings.';
+      setSettingsError(errMsg);
+    } finally {
+      setIsSavingSettings(false);
     }
   };
 
@@ -166,27 +258,21 @@ export default function Profile() {
     navigate('/login');
   };
 
-  if (loadingProfile && !user) {
+  if (loadingProfile) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}>
-        <CircularProgress color="primary" />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <CircularProgress size={48} />
       </Box>
     );
   }
 
   return (
-    <Box component="section" aria-labelledby="profile-heading" sx={{ py: 4 }}>
-      {/* Page Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography id="profile-heading" variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
-          Manage Profile
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Update your public profile information, avatar, and review your platform activity timeline.
-        </Typography>
-      </Box>
+    <Box component="main" sx={{ py: 4 }} aria-label="User Profile Management">
+      <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 800, mb: 3 }}>
+        User Profile
+      </Typography>
 
-      {/* Global Alert Banners */}
+      {/* Global alert feedback */}
       <AlertBanner
         severity="error"
         message={serverError}
@@ -199,74 +285,64 @@ export default function Profile() {
       />
 
       <Grid container spacing={4}>
-        {/* Left Column: Avatar & Overview */}
+        {/* Left Column: Profile Card & Identity Overview */}
         <Grid item xs={12} md={4}>
-          <Card sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <CardContent sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              {/* Avatar with Upload Control */}
+          <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+            <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+              {/* Avatar with Camera upload button */}
               <Box sx={{ position: 'relative', mb: 2 }}>
                 <Avatar
-                  src={previewUrl || user?.profilePictureUrl || undefined}
-                  alt={`${user?.name}'s profile picture`}
-                  sx={{
-                    width: 120,
-                    height: 120,
-                    bgcolor: 'primary.main',
-                    fontSize: '2.5rem',
-                    border: '3px solid #e2e8f0'
-                  }}
+                  src={previewUrl}
+                  alt={`${user?.name}'s avatar`}
+                  sx={{ width: 120, height: 120, border: '4px solid #3b82f6', bgcolor: 'primary.light' }}
                 >
-                  {user?.name ? user.name.charAt(0).toUpperCase() : <PersonIcon sx={{ fontSize: 60 }} />}
+                  <PersonIcon sx={{ fontSize: 64 }} />
                 </Avatar>
-
-                {/* Hidden File Input */}
-                <input
-                  type="file"
-                  id="avatar-file-input"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  style={{ display: 'none' }}
-                  aria-label="Upload profile image"
-                />
-
                 <IconButton
-                  id="upload-avatar-btn"
+                  color="primary"
+                  aria-label="Upload profile picture (Max 2MB)"
                   onClick={handleTriggerFileInput}
-                  aria-label="Upload new profile picture"
                   sx={{
                     position: 'absolute',
                     bottom: 0,
                     right: 0,
-                    bgcolor: 'primary.main',
-                    color: '#ffffff',
+                    bgcolor: 'background.paper',
                     boxShadow: 2,
-                    '&:hover': { bgcolor: 'primary.dark' }
+                    '&:hover': { bgcolor: 'grey.100' }
                   }}
                 >
                   <PhotoCameraIcon fontSize="small" />
                 </IconButton>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  hidden
+                  onChange={handleFileChange}
+                  aria-label="Select profile picture file"
+                />
               </Box>
 
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
-                Max file size: 2MB (JPG, PNG, GIF, WEBP)
-              </Typography>
-
-              <Typography variant="h5" sx={{ fontWeight: 700, textAlign: 'center' }}>
+              <Typography variant="h5" component="h2" sx={{ fontWeight: 700 }}>
                 {user?.name}
               </Typography>
 
               <Chip
                 icon={<ShieldIcon sx={{ fontSize: '1rem !important' }} />}
-                label={user?.role === 'admin' ? 'Administrator' : 'Standard User'}
-                color={user?.role === 'admin' ? 'secondary' : 'default'}
+                label={user?.role?.toUpperCase() || 'USER'}
                 size="small"
-                sx={{ mt: 1, mb: 3, fontWeight: 600 }}
+                color={user?.role === 'admin' ? 'secondary' : 'default'}
+                sx={{ mt: 1, mb: 2, fontWeight: 600 }}
               />
 
-              <Divider sx={{ width: '100%', mb: 3 }} />
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3, px: 2 }}>
+                {user?.bio || 'No bio provided yet. Click below to share your story with the community.'}
+              </Typography>
 
-              <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Divider sx={{ width: '100%', mb: 2 }} />
+
+              {/* Immutable & System Info Fields */}
+              <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                   <EmailIcon color="action" />
                   <Box sx={{ flex: 1 }}>
@@ -288,15 +364,28 @@ export default function Profile() {
                   />
                 </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <NotificationsIcon color="action" />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Notification Preferences
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                  <NotificationsIcon color="action" sx={{ mt: 0.5 }} />
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                      Active Notification Types
                     </Typography>
-                    <Typography variant="body2">
-                      Discussions: <strong>{user?.notificationSettings?.newDiscussions !== false ? 'Enabled' : 'Disabled'}</strong> | Resources: <strong>{user?.notificationSettings?.newResources !== false ? 'Enabled' : 'Disabled'}</strong>
-                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Chip
+                        label={user?.notificationSettings?.newDiscussions !== false ? 'Discussions: ON' : 'Discussions: OFF'}
+                        size="small"
+                        color={user?.notificationSettings?.newDiscussions !== false ? 'primary' : 'default'}
+                        variant={user?.notificationSettings?.newDiscussions !== false ? 'filled' : 'outlined'}
+                        sx={{ fontSize: '0.7rem', fontWeight: 600 }}
+                      />
+                      <Chip
+                        label={user?.notificationSettings?.newResources !== false ? 'Resources: ON' : 'Resources: OFF'}
+                        size="small"
+                        color={user?.notificationSettings?.newResources !== false ? 'success' : 'default'}
+                        variant={user?.notificationSettings?.newResources !== false ? 'filled' : 'outlined'}
+                        sx={{ fontSize: '0.7rem', fontWeight: 600 }}
+                      />
+                    </Box>
                   </Box>
                 </Box>
               </Box>
@@ -317,7 +406,7 @@ export default function Profile() {
           </Card>
         </Grid>
 
-        {/* Right Column: Edit Profile Form & Activity Timeline */}
+        {/* Right Column: Edit Profile Form, Notification Preferences Panel, & Activity Timeline */}
         <Grid item xs={12} md={8}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {/* Edit Profile Form */}
@@ -367,6 +456,9 @@ export default function Profile() {
                     }}
                     error={Boolean(formErrors.name)}
                     helperText={formErrors.name}
+                    FormHelperTextProps={{
+                      role: formErrors.name ? 'alert' : undefined
+                    }}
                     inputProps={{
                       'aria-required': 'true',
                       'aria-invalid': Boolean(formErrors.name)
@@ -388,6 +480,9 @@ export default function Profile() {
                     }}
                     error={Boolean(formErrors.bio)}
                     helperText={formErrors.bio || `${bio.length}/500 characters. Tell the community about your interests.`}
+                    FormHelperTextProps={{
+                      role: formErrors.bio ? 'alert' : undefined
+                    }}
                     inputProps={{
                       maxLength: 500
                     }}
@@ -411,6 +506,180 @@ export default function Profile() {
                 </Box>
               </CardContent>
             </Card>
+
+            {/* NOTIFICATION SETTINGS PANEL (User Story 7) */}
+            <section aria-labelledby="notification-settings-heading">
+              <Card sx={{ p: 2 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                    <NotificationsIcon color="primary" />
+                    <Typography variant="h6" component="h2" id="notification-settings-heading" sx={{ fontWeight: 700 }}>
+                      Notification Preferences
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+                    Choose which notifications you wish to receive from your joined communities.
+                    To stay connected, at least one notification category must remain enabled.
+                  </Typography>
+
+                  {/* Settings Specific Feedback */}
+                  <AlertBanner
+                    severity="error"
+                    message={settingsError}
+                    onClose={() => setSettingsError('')}
+                  />
+                  <AlertBanner
+                    severity="success"
+                    message={settingsSuccess}
+                    onClose={() => setSettingsSuccess('')}
+                  />
+
+                  {/* Single switch warning callout */}
+                  {(!notifSettings.newDiscussions || !notifSettings.newResources) && (
+                    <Box
+                      sx={{
+                        mb: 2,
+                        p: 1.5,
+                        bgcolor: 'info.50',
+                        border: '1px solid #bfdbfe',
+                        borderRadius: 1.5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1
+                      }}
+                    >
+                      <InfoOutlinedIcon color="info" fontSize="small" />
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark' }}>
+                        Notice: You cannot turn off all notifications. At least one notification type must remain enabled.
+                      </Typography>
+                    </Box>
+                  )}
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {/* New Discussions Switch */}
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        bgcolor: notifSettings.newDiscussions ? 'inherit' : 'action.hover',
+                        transition: 'background-color 0.2s ease'
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, pr: 2 }}>
+                        <ForumIcon color={notifSettings.newDiscussions ? 'primary' : 'disabled'} sx={{ mt: 0.5 }} />
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            New Discussions
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Receive notifications whenever another member starts a new discussion in your communities.
+                          </Typography>
+                          {notifSettings.newDiscussions && !notifSettings.newResources && (
+                            <Typography
+                              variant="caption"
+                              color="warning.main"
+                              sx={{ display: 'block', mt: 0.5, fontWeight: 600 }}
+                            >
+                              * Cannot be toggled off while resource notifications are disabled.
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            id="switch-new-discussions"
+                            checked={notifSettings.newDiscussions}
+                            onChange={handleToggleDiscussions}
+                            color="primary"
+                            inputProps={{
+                              'aria-label': 'Toggle notifications for new discussions',
+                              'aria-checked': notifSettings.newDiscussions
+                            }}
+                          />
+                        }
+                        label=""
+                        sx={{ m: 0 }}
+                      />
+                    </Paper>
+
+                    {/* New Resources Switch */}
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        bgcolor: notifSettings.newResources ? 'inherit' : 'action.hover',
+                        transition: 'background-color 0.2s ease'
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, pr: 2 }}>
+                        <DescriptionIcon color={notifSettings.newResources ? 'success' : 'disabled'} sx={{ mt: 0.5 }} />
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            New Resources
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Receive notifications whenever an article, video, or file is shared in your communities.
+                          </Typography>
+                          {notifSettings.newResources && !notifSettings.newDiscussions && (
+                            <Typography
+                              variant="caption"
+                              color="warning.main"
+                              sx={{ display: 'block', mt: 0.5, fontWeight: 600 }}
+                            >
+                              * Cannot be toggled off while discussion notifications are disabled.
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            id="switch-new-resources"
+                            checked={notifSettings.newResources}
+                            onChange={handleToggleResources}
+                            color="primary"
+                            inputProps={{
+                              'aria-label': 'Toggle notifications for new resources',
+                              'aria-checked': notifSettings.newResources
+                            }}
+                          />
+                        }
+                        label=""
+                        sx={{ m: 0 }}
+                      />
+                    </Paper>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                      <Button
+                        id="save-notifications-btn"
+                        variant="contained"
+                        color="primary"
+                        onClick={handleSaveNotificationSettings}
+                        disabled={isSavingSettings}
+                        startIcon={<SaveIcon />}
+                        aria-label="Save notification preferences"
+                        sx={{ px: 3 }}
+                      >
+                        {isSavingSettings ? (
+                          <CircularProgress size={24} color="inherit" />
+                        ) : (
+                          'Save Notification Preferences'
+                        )}
+                      </Button>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </section>
 
             {/* Activity Timeline Section */}
             <Card sx={{ p: 2 }}>

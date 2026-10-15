@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { Community, Discussion, Notification } = require('../models');
+const { Community, Discussion, Notification, User } = require('../models');
 
 /**
  * @route   POST /api/communities/:id/discussions
@@ -67,19 +67,26 @@ const createDiscussion = async (req, res) => {
     });
     await req.user.save();
 
-    // Notify other community members who haven't turned off discussion notifications
+    // Notify other active community members who haven't turned off discussion notifications
     try {
       const otherMembers = community.members.filter(
         (m) => m.toString() !== req.user._id.toString()
       );
       if (otherMembers.length > 0) {
-        const notifications = otherMembers.map((memberId) => ({
-          recipient: memberId,
-          community: community._id,
-          type: 'discussion',
-          message: `New discussion "${discussion.title}" started in ${community.name} by ${req.user.name}.`
-        }));
-        await Notification.insertMany(notifications);
+        const eligibleUsers = await User.find({
+          _id: { $in: otherMembers },
+          'notificationSettings.newDiscussions': { $ne: false }
+        }).select('_id');
+
+        if (eligibleUsers.length > 0) {
+          const notifications = eligibleUsers.map((member) => ({
+            recipient: member._id,
+            community: community._id,
+            type: 'discussion',
+            message: `New discussion "${discussion.title}" started in ${community.name} by ${req.user.name}.`
+          }));
+          await Notification.insertMany(notifications);
+        }
       }
     } catch (notifErr) {
       console.warn('Notification dispatch non-fatal error:', notifErr.message);

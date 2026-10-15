@@ -123,7 +123,88 @@ const updateProfile = async (req, res) => {
   }
 };
 
+/**
+ * @route   PUT /api/users/notification-settings
+ * @desc    Update user notification preferences
+ * @access  Private
+ */
+const updateNotificationSettings = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        message: 'User profile not found.'
+      });
+    }
+
+    const { newDiscussions, newResources } = req.body;
+
+    const currentDiscussions = user.notificationSettings?.newDiscussions !== false;
+    const currentResources = user.notificationSettings?.newResources !== false;
+
+    const parseBooleanParam = (value, fallback) => {
+      if (value === undefined || value === null) return fallback;
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'string') {
+        const val = value.trim().toLowerCase();
+        if (val === 'false' || val === '0') return false;
+        if (val === 'true' || val === '1') return true;
+      }
+      return Boolean(value);
+    };
+
+    const targetDiscussions = parseBooleanParam(newDiscussions, currentDiscussions);
+    const targetResources = parseBooleanParam(newResources, currentResources);
+
+    // STRICT NEGATIVE CRITERION 2:
+    // Users must not be able to turn off all notifications. If a user attempts to set both
+    // newDiscussions: false and newResources: false, return 400 Bad Request with
+    // "You cannot turn off all notifications. At least one notification type must remain enabled."
+    if (!targetDiscussions && !targetResources) {
+      return res.status(400).json({
+        message: 'You cannot turn off all notifications. At least one notification type must remain enabled.'
+      });
+    }
+
+    user.notificationSettings = {
+      newDiscussions: targetDiscussions,
+      newResources: targetResources
+    };
+
+    user.activityLog.push({
+      action: 'Updated notification settings',
+      timestamp: new Date()
+    });
+
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Notification settings updated successfully.',
+      notificationSettings: user.notificationSettings,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        bio: user.bio,
+        profilePictureUrl: user.profilePictureUrl,
+        notificationSettings: user.notificationSettings,
+        activityLog: user.activityLog,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }
+    });
+  } catch (error) {
+    console.error('Update notification settings error:', error);
+    return res.status(500).json({
+      message: error.message || 'Failed to update notification settings.'
+    });
+  }
+};
+
 module.exports = {
   getProfile,
-  updateProfile
+  updateProfile,
+  updateNotificationSettings
 };
+

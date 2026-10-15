@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
-// Maximum allowed resource file size (10 MB in bytes)
-const MAX_RESOURCE_FILE_SIZE = 10 * 1024 * 1024;
+// Maximum allowed resource file size (5 MB in bytes)
+const MAX_RESOURCE_FILE_SIZE = 5 * 1024 * 1024;
 
 const resourceSchema = new mongoose.Schema(
   {
@@ -41,7 +41,7 @@ const resourceSchema = new mongoose.Schema(
           if (val === undefined || val === null) return true;
           return typeof val === 'number' && val >= 0 && val <= MAX_RESOURCE_FILE_SIZE;
         },
-        message: `File size exceeds the maximum limit of ${MAX_RESOURCE_FILE_SIZE / (1024 * 1024)} MB`
+        message: 'The resource exceeds the maximum allowed size limit.'
       }
     },
     createdAt: {

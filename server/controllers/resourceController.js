@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { Community, Resource, Notification } = require('../models');
+const { Community, Resource, Notification, User } = require('../models');
 
 /**
  * @route   GET /api/communities/:id/resources
@@ -127,19 +127,26 @@ const createResource = async (req, res) => {
     });
     await req.user.save();
 
-    // Dispatch notification to other community members who haven't disabled resource notifications
+    // Dispatch notification to other active community members who haven't disabled resource notifications
     try {
       const otherMembers = community.members.filter(
         (m) => m.toString() !== req.user._id.toString()
       );
       if (otherMembers.length > 0) {
-        const notifications = otherMembers.map((memberId) => ({
-          recipient: memberId,
-          community: community._id,
-          type: 'resource',
-          message: `${req.user.name} shared a new resource "${resource.title}" in ${community.name}.`
-        }));
-        await Notification.insertMany(notifications);
+        const eligibleUsers = await User.find({
+          _id: { $in: otherMembers },
+          'notificationSettings.newResources': { $ne: false }
+        }).select('_id');
+
+        if (eligibleUsers.length > 0) {
+          const notifications = eligibleUsers.map((member) => ({
+            recipient: member._id,
+            community: community._id,
+            type: 'resource',
+            message: `${req.user.name} shared a new resource "${resource.title}" in ${community.name}.`
+          }));
+          await Notification.insertMany(notifications);
+        }
       }
     } catch (notifErr) {
       console.warn('Notification dispatch error:', notifErr.message);

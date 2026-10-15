@@ -158,6 +158,9 @@ export default function ForgotPassword() {
               }}
               error={Boolean(error)}
               helperText={error}
+              FormHelperTextProps={{
+                role: error ? 'alert' : undefined
+              }}
               inputProps={{
                 'aria-required': 'true',
                 'aria-invalid': Boolean(error)
