@@ -69,6 +69,15 @@ export default function Navbar() {
                 >
                   Home
                 </Button>
+                <Button
+                  component={Link}
+                  to="/communities"
+                  color="inherit"
+                  aria-label="Navigate to Communities"
+                  sx={{ fontWeight: 500 }}
+                >
+                  Communities
+                </Button>
 
                 {isAuthenticated ? (
                   <>

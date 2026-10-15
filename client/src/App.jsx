@@ -16,6 +16,8 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
+import Communities from './pages/Communities';
+import CommunityDetail from './pages/CommunityDetail';
 import PrivateRoute from './components/PrivateRoute';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -228,6 +230,8 @@ function AppContent() {
             />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/communities" element={<Communities />} />
+            <Route path="/communities/:id" element={<CommunityDetail />} />
             <Route
               path="/profile"
               element={
