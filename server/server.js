@@ -21,8 +21,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Routes
 const authRoutes = require('./routes/authRoutes');
 const communityRoutes = require('./routes/communityRoutes');
+const userRoutes = require('./routes/userRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/communities', communityRoutes);
+app.use('/api/users', userRoutes);
 
 // Basic health check endpoint
 app.get('/api/health', (req, res) => {
