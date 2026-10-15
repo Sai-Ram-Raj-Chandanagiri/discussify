@@ -18,6 +18,10 @@ app.use(express.urlencoded({ extended: true }));
 // Static uploads folder
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Routes
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth', authRoutes);
+
 // Basic health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -29,7 +33,7 @@ app.get('/api/health', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-if (process.env.NODE_ENV !== 'test') {
+if (require.main === module) {
   const connectDB = require('./config/db');
   connectDB().then(() => {
     app.listen(PORT, () => {
