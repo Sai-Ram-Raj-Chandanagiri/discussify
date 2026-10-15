@@ -17,13 +17,14 @@ import Switch from '@mui/material/Switch';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import InputAdornment from '@mui/material/InputAdornment';
-import Avatar from '@mui/material/Avatar';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import LockIcon from '@mui/icons-material/Lock';
 import PublicIcon from '@mui/icons-material/Public';
 import PeopleIcon from '@mui/icons-material/People';
 import GroupsIcon from '@mui/icons-material/Groups';
+import LoginIcon from '@mui/icons-material/Login';
+import LogoutIcon from '@mui/icons-material/Logout';
 import AlertBanner from '../components/AlertBanner';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -35,7 +36,8 @@ export default function Communities() {
   const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [fetchError, setFetchError] = useState('');
+  const [pageError, setPageError] = useState('');
+  const [pageSuccess, setPageSuccess] = useState('');
 
   // Create Dialog state
   const [openCreate, setOpenCreate] = useState(false);
@@ -47,23 +49,31 @@ export default function Communities() {
   const [createSuccessMessage, setCreateSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchCommunities = async () => {
+  // Joining/Leaving states
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+
+  const fetchCommunities = async (searchQuery = '') => {
     try {
       setLoading(true);
-      const res = await api.get('/communities');
+      const url = searchQuery ? `/communities?search=${encodeURIComponent(searchQuery)}` : '/communities';
+      const res = await api.get(url);
       setCommunities(res.data.communities || []);
-      setFetchError('');
+      setPageError('');
     } catch (err) {
       console.error('Fetch communities error:', err);
-      setFetchError('Failed to load communities. Please refresh the page.');
+      setPageError('Failed to load communities. Please refresh the page.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCommunities();
-  }, []);
+    const delayDebounceFn = setTimeout(() => {
+      fetchCommunities(searchTerm.trim());
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
 
   const handleOpenCreate = () => {
     if (!isAuthenticated) {
@@ -118,7 +128,7 @@ export default function Communities() {
       setCreateSuccessMessage(res.data.message || 'Community created successfully!');
       setTimeout(() => {
         setOpenCreate(false);
-        fetchCommunities();
+        fetchCommunities(searchTerm.trim());
         if (res.data.community?._id) {
           navigate(`/communities/${res.data.community._id}`);
         }
@@ -133,15 +143,50 @@ export default function Communities() {
     }
   };
 
-  // Filtered communities based on search input
-  const filteredCommunities = communities.filter((c) => {
-    const term = searchTerm.toLowerCase().trim();
-    if (!term) return true;
-    return (
-      c.name.toLowerCase().includes(term) ||
-      (c.description && c.description.toLowerCase().includes(term))
-    );
-  });
+  // Join Community Handler
+  const handleJoin = async (communityId) => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: { pathname: '/communities' } } });
+      return;
+    }
+
+    setPageError('');
+    setPageSuccess('');
+    setActionLoadingId(communityId);
+
+    try {
+      const res = await api.post(`/communities/${communityId}/join`);
+      setPageSuccess(res.data.message || 'Successfully joined community!');
+      fetchCommunities(searchTerm.trim());
+    } catch (err) {
+      const message =
+        err.response?.data?.message || 'Failed to join community.';
+      setPageError(message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Leave Community Handler
+  const handleLeave = async (communityId) => {
+    if (!isAuthenticated) return;
+
+    setPageError('');
+    setPageSuccess('');
+    setActionLoadingId(communityId);
+
+    try {
+      const res = await api.post(`/communities/${communityId}/leave`);
+      setPageSuccess(res.data.message || 'Successfully left community.');
+      fetchCommunities(searchTerm.trim());
+    } catch (err) {
+      const message =
+        err.response?.data?.message || 'Failed to leave community.';
+      setPageError(message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   return (
     <Box component="section" aria-labelledby="communities-heading" sx={{ py: 4 }}>
@@ -163,7 +208,7 @@ export default function Communities() {
             component="h1"
             sx={{ fontWeight: 700 }}
           >
-            Explore Communities
+            Community Directory
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Find and join communities centered on your topics of passion, or start your own.
@@ -171,6 +216,7 @@ export default function Communities() {
         </Box>
 
         <Button
+          id="create-community-open-btn"
           variant="contained"
           color="primary"
           size="large"
@@ -183,11 +229,15 @@ export default function Communities() {
         </Button>
       </Box>
 
+      {/* Global Alerts */}
+      <AlertBanner severity="error" message={pageError} onClose={() => setPageError('')} />
+      <AlertBanner severity="success" message={pageSuccess} onClose={() => setPageSuccess('')} />
+
       {/* Search Bar */}
       <Box sx={{ mb: 4 }}>
         <TextField
           id="community-search"
-          placeholder="Search communities by name or topic..."
+          placeholder="Search communities by name or topic keyword..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           fullWidth
@@ -197,14 +247,11 @@ export default function Communities() {
                 <SearchIcon color="action" />
               </InputAdornment>
             ),
-            'aria-label': 'Search communities by name or topic'
+            'aria-label': 'Search communities by keyword'
           }}
           sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
         />
       </Box>
-
-      {/* Global Alerts */}
-      <AlertBanner severity="error" message={fetchError} onClose={() => setFetchError('')} />
 
       {/* Communities Grid */}
       {loading ? (
@@ -215,86 +262,123 @@ export default function Communities() {
         >
           <CircularProgress color="primary" />
         </Box>
-      ) : filteredCommunities.length > 0 ? (
+      ) : communities.length > 0 ? (
         <Grid container spacing={3}>
-          {filteredCommunities.map((comm) => (
-            <Grid item xs={12} sm={6} md={4} key={comm._id}>
-              <Card
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)'
-                  }
-                }}
-              >
-                <CardContent sx={{ flex: 1, pb: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+          {communities.map((comm) => {
+            const isCreator =
+              user &&
+              ((comm.creator?._id || comm.creator) === user.id);
+            const isMember =
+              user &&
+              comm.members?.some((m) => (m._id || m) === user.id);
+            const isActionLoading = actionLoadingId === comm._id;
+
+            return (
+              <Grid item xs={12} sm={6} md={4} key={comm._id}>
+                <Card
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)'
+                    }
+                  }}
+                >
+                  <CardContent sx={{ flex: 1, pb: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                      <Typography
+                        variant="h6"
+                        component="h2"
+                        sx={{
+                          fontWeight: 700,
+                          lineHeight: 1.3,
+                          color: 'primary.dark'
+                        }}
+                      >
+                        {comm.name}
+                      </Typography>
+                      <Chip
+                        icon={comm.isPrivate ? <LockIcon sx={{ fontSize: '0.85rem !important' }} /> : <PublicIcon sx={{ fontSize: '0.85rem !important' }} />}
+                        label={comm.isPrivate ? 'Private' : 'Public'}
+                        size="small"
+                        color={comm.isPrivate ? 'secondary' : 'default'}
+                        variant="outlined"
+                        sx={{ fontSize: '0.75rem', fontWeight: 600 }}
+                      />
+                    </Box>
+
                     <Typography
-                      variant="h6"
-                      component="h2"
+                      variant="body2"
+                      color="text.secondary"
                       sx={{
-                        fontWeight: 700,
-                        lineHeight: 1.3,
-                        color: 'primary.dark'
+                        mb: 2,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        minHeight: '4.2em'
                       }}
                     >
-                      {comm.name}
+                      {comm.description || 'No description provided for this community.'}
                     </Typography>
-                    <Chip
-                      icon={comm.isPrivate ? <LockIcon sx={{ fontSize: '0.85rem !important' }} /> : <PublicIcon sx={{ fontSize: '0.85rem !important' }} />}
-                      label={comm.isPrivate ? 'Private' : 'Public'}
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', fontSize: '0.875rem' }}>
+                      <PeopleIcon sx={{ fontSize: '1.1rem' }} />
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                        {comm.members?.length || 1} {comm.members?.length === 1 ? 'member' : 'members'}
+                      </Typography>
+                    </Box>
+                  </CardContent>
+
+                  <CardActions sx={{ px: 2, pb: 2, pt: 1, justifyContent: 'space-between', borderTop: '1px solid #f1f5f9' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {isCreator ? (
+                        <Chip label="Creator" size="small" color="primary" sx={{ height: 24, fontSize: '0.75rem' }} />
+                      ) : isMember ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          startIcon={<LogoutIcon fontSize="small" />}
+                          onClick={() => handleLeave(comm._id)}
+                          disabled={isActionLoading}
+                          aria-label={`Leave ${comm.name}`}
+                        >
+                          Leave
+                        </Button>
+                      ) : (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          startIcon={<LoginIcon fontSize="small" />}
+                          onClick={() => handleJoin(comm._id)}
+                          disabled={isActionLoading}
+                          aria-label={`Join ${comm.name}`}
+                        >
+                          Join
+                        </Button>
+                      )}
+                    </Box>
+
+                    <Button
+                      component={Link}
+                      to={`/communities/${comm._id}`}
                       size="small"
-                      color={comm.isPrivate ? 'secondary' : 'default'}
-                      variant="outlined"
-                      sx={{ fontSize: '0.75rem', fontWeight: 600 }}
-                    />
-                  </Box>
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      mb: 2,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      minHeight: '4.2em'
-                    }}
-                  >
-                    {comm.description || 'No description provided for this community.'}
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', fontSize: '0.875rem' }}>
-                    <PeopleIcon sx={{ fontSize: '1.1rem' }} />
-                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                      {comm.members?.length || 1} {comm.members?.length === 1 ? 'member' : 'members'}
-                    </Typography>
-                  </Box>
-                </CardContent>
-
-                <CardActions sx={{ px: 2, pb: 2, pt: 0, justifyContent: 'space-between' }}>
-                  <Typography variant="caption" color="text.secondary">
-                    By {comm.creator?.name || 'Community Member'}
-                  </Typography>
-                  <Button
-                    component={Link}
-                    to={`/communities/${comm._id}`}
-                    size="small"
-                    variant="outlined"
-                    color="primary"
-                    aria-label={`View details for ${comm.name}`}
-                  >
-                    View Community
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
+                      color="inherit"
+                      aria-label={`View details for ${comm.name}`}
+                      sx={{ fontWeight: 600 }}
+                    >
+                      View &rarr;
+                    </Button>
+                  </CardActions>
+                </Card>
+              </Grid>
+            );
+          })}
         </Grid>
       ) : (
         <Card sx={{ p: 6, textAlign: 'center' }}>
@@ -400,6 +484,7 @@ export default function Communities() {
               Cancel
             </Button>
             <Button
+              id="create-community-submit-btn"
               type="submit"
               variant="contained"
               color="primary"

@@ -354,10 +354,158 @@ const getCommunityById = async (req, res) => {
   }
 };
 
+/**
+ * @route   POST /api/communities/:id/join
+ * @desc    Join a community (enforcing invitation for private communities)
+ * @access  Private
+ */
+const joinCommunity = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: 'Invalid community ID.'
+      });
+    }
+
+    const community = await Community.findById(id);
+    if (!community) {
+      return res.status(404).json({
+        message: 'Community not found.'
+      });
+    }
+
+    const isMember = community.members.some(
+      (m) => m.toString() === req.user._id.toString()
+    );
+    if (isMember) {
+      return res.status(400).json({
+        message: 'You are already a member of this community.'
+      });
+    }
+
+    // STRICT NEGATIVE CRITERION:
+    // If community.isPrivate is true and the user ID is not in community.invitedUsers,
+    // return 403 Forbidden with exact message:
+    // "You cannot join a private community without an invitation."
+    const isInvited = community.invitedUsers.some(
+      (i) => i.toString() === req.user._id.toString()
+    );
+
+    if (community.isPrivate && !isInvited) {
+      return res.status(403).json({
+        message: 'You cannot join a private community without an invitation.'
+      });
+    }
+
+    // Add user to members
+    community.members.push(req.user._id);
+
+    // Remove from invitedUsers if present
+    community.invitedUsers = community.invitedUsers.filter(
+      (i) => i.toString() !== req.user._id.toString()
+    );
+
+    await community.save();
+
+    // Log activity
+    req.user.activityLog.push({
+      action: `Joined community: ${community.name}`,
+      timestamp: new Date()
+    });
+    await req.user.save();
+
+    await community.populate('creator', 'name email profilePictureUrl');
+    await community.populate('members', 'name email profilePictureUrl');
+    await community.populate('invitedUsers', 'name email profilePictureUrl');
+
+    return res.status(200).json({
+      message: 'Successfully joined the community.',
+      community
+    });
+  } catch (error) {
+    console.error('Join community error:', error);
+    return res.status(500).json({
+      message: 'Failed to join community.'
+    });
+  }
+};
+
+/**
+ * @route   POST /api/communities/:id/leave
+ * @desc    Leave a community
+ * @access  Private
+ */
+const leaveCommunity = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: 'Invalid community ID.'
+      });
+    }
+
+    const community = await Community.findById(id);
+    if (!community) {
+      return res.status(404).json({
+        message: 'Community not found.'
+      });
+    }
+
+    const isMember = community.members.some(
+      (m) => m.toString() === req.user._id.toString()
+    );
+    if (!isMember) {
+      return res.status(400).json({
+        message: 'You are not a member of this community.'
+      });
+    }
+
+    // Creator cannot leave without transferring or deleting
+    if (community.creator.toString() === req.user._id.toString()) {
+      return res.status(400).json({
+        message: 'Community creators cannot leave their own community.'
+      });
+    }
+
+    community.members = community.members.filter(
+      (m) => m.toString() !== req.user._id.toString()
+    );
+
+    await community.save();
+
+    // Log activity
+    req.user.activityLog.push({
+      action: `Left community: ${community.name}`,
+      timestamp: new Date()
+    });
+    await req.user.save();
+
+    await community.populate('creator', 'name email profilePictureUrl');
+    await community.populate('members', 'name email profilePictureUrl');
+    await community.populate('invitedUsers', 'name email profilePictureUrl');
+
+    return res.status(200).json({
+      message: 'Successfully left the community.',
+      community
+    });
+  } catch (error) {
+    console.error('Leave community error:', error);
+    return res.status(500).json({
+      message: 'Failed to leave community.'
+    });
+  }
+};
+
 module.exports = {
   createCommunity,
   updateCommunity,
   inviteUser,
   getCommunities,
-  getCommunityById
+  getCommunityById,
+  joinCommunity,
+  leaveCommunity
 };
+
