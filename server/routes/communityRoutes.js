@@ -28,4 +28,21 @@ router.post('/:id/Leave', protect, leaveCommunity);
 router.get('/:id/discussions', getDiscussionsByCommunity);
 router.post('/:id/discussions', protect, createDiscussion);
 
+// Community Resources
+const {
+  getResourcesByCommunity,
+  createResource
+} = require('../controllers/resourceController');
+const { uploadResourceFile } = require('../middleware/resourceUpload');
+const { moderateContent } = require('../middleware/contentModeration');
+
+router.get('/:id/resources', getResourcesByCommunity);
+router.post(
+  '/:id/resources',
+  protect,
+  uploadResourceFile,
+  moderateContent,
+  createResource
+);
+
 module.exports = router;
